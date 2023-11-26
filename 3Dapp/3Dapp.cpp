@@ -34,6 +34,9 @@ struct triangle
     float col = 0.0f;
 };
 
+int trisLoaded;
+int trisDrawn;
+
 struct mesh
 {
     vector<triangle> tris;
@@ -69,8 +72,11 @@ struct mesh
                 int f[3];
                 s >> junk >> f[0] >> f[1] >> f[2];
                 tris.push_back({ verts[f[0] - 1], verts[f[1] - 1], verts[f[2] - 1] });
+
+                trisLoaded++;
             }
         }
+        cout << trisLoaded;
         return true;
     }
 };
@@ -86,7 +92,8 @@ float fYaw;
 
 float pX = 0;
 
-int Xfb = 0;
+int fb = 0;
+int ud = 0;
 
 string pKey;
 
@@ -343,13 +350,14 @@ float DegToRad(float a)
 
 void createTris()
 {
-    meshCube.LoadFromObjFile("axis.obj");
+    meshCube.LoadFromObjFile("terraintest.obj");
 
     matProj = Matrix_MakeProjection(90.0f, (float)height / (float)width, 0.1f, 1000.0f);
 }
 
 void drawTriangle(float x1, float y1, float x2, float y2, float x3, float y3, float dp)
 {
+    trisDrawn++;
     glColor3f(0.5, 0.5, dp);
     glBegin(GL_TRIANGLES); glVertex2f(x1, y1); glVertex2f(x2, y2); glVertex2f(x3, y3); glEnd();
     //glColor3f(1.0f, 1.0f, 1.0f);
@@ -360,20 +368,91 @@ void drawTriangle(float x1, float y1, float x2, float y2, float x3, float y3, fl
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-    if (key == GLFW_KEY_Q)
-        pX += 1;
-    if (key == GLFW_KEY_E)
-        pX -= 1;
+    if (key == GLFW_KEY_UP)
+        switch (action)
+            {
+            case GLFW_PRESS:
+                ud = 2;
+                break;
+
+            case GLFW_REPEAT:
+                ud = 2;
+                break;
+
+            case GLFW_RELEASE:
+                ud = 0;
+                break;
+        }
+    if (key == GLFW_KEY_DOWN)
+        switch (action)
+            {
+            case GLFW_PRESS:
+                ud = 1;
+                break;
+
+            case GLFW_REPEAT:
+                ud = 1;
+                break;
+
+            case GLFW_RELEASE:
+                ud = 0;
+                break;
+        }
     if (key == GLFW_KEY_D)
-        fYaw -= 0.1f;
+        switch (action)
+        {
+            case GLFW_PRESS:
+                fYaw += 0.01;
+                break;
+
+            case GLFW_REPEAT:
+                fYaw += 0.01;
+                break;
+        }
+
     if (key == GLFW_KEY_A)
-        fYaw += 0.1f;
+        switch (action)
+        {
+        case GLFW_PRESS:
+            fYaw -= 0.01;
+            break;
+
+        case GLFW_REPEAT:
+            fYaw -= 0.01;
+            break;
+        }
     if (key == GLFW_KEY_W)
-        Xfb = 2;
+    {
+        switch (action)
+        {
+            case GLFW_PRESS:
+                fb = 2;
+                break;
+
+            case GLFW_REPEAT:
+                fb = 2;
+                break;
+            
+            case GLFW_RELEASE:
+                fb = 0;
+                break;
+        }
+    }
     else if (key == GLFW_KEY_S)
-        Xfb = 1;
-    else
-        Xfb = 0;
+        switch (action)
+        {
+        case GLFW_PRESS:
+            fb = 1;
+            break;
+
+        case GLFW_REPEAT:
+            fb = 1;
+            break;
+
+        case GLFW_RELEASE:
+            fb = 0;
+            break;
+        }
 }
 
 int main(void)
@@ -398,7 +477,7 @@ int main(void)
 
     createTris();
 
-    float zAngle = DegToRad(45.0f);
+    float zAngle = DegToRad(0.0f);
     float xAngle = DegToRad(0.0f);
 
     while (!glfwWindowShouldClose(window))
@@ -408,10 +487,15 @@ int main(void)
 
         vec3d vForward = Vector_Mul(vLookDir, 0.1f);
 
-        if (Xfb == 2)
+        if (fb == 2)
             vCamera = Vector_Add(vCamera, vForward);
-        else if (Xfb == 1)
+        else if (fb == 1)
             vCamera = Vector_Sub(vCamera, vForward);
+
+        if (ud == 2)
+            vCamera.y += 1;
+        else if (ud == 1)
+            vCamera.y -= 1;
 
         mat4x4 matRotZ, matRotX;
 
@@ -424,7 +508,7 @@ int main(void)
         matRotX = Matrix_MakeRotationX(xAngle);
 
         mat4x4 matTrans;
-        matTrans = Matrix_MakeTranslation(0.0f, 0.0f, 8.0f);
+        matTrans = Matrix_MakeTranslation(0.0f, -8.0f, 8.0f);
 
         mat4x4 matWorld;
         matWorld = Matrix_MakeIdentity();
@@ -464,7 +548,7 @@ int main(void)
 
             vec3d vCameraRay = Vector_Sub(triTransformed.p[0], vCamera);
 
-            if(Vector_DotProduct(normal, vCameraRay) < 0.0f)
+            if (Vector_DotProduct(normal, vCameraRay) < 0.0f)
             {
                 vec3d light_direction = { 0.0f, 1.0f, -1.0f };
                 light_direction = Vector_Normalise(light_direction);
@@ -492,6 +576,13 @@ int main(void)
                     triProjected.p[1] = Vector_Div(triProjected.p[1], triProjected.p[1].w);
                     triProjected.p[2] = Vector_Div(triProjected.p[2], triProjected.p[2].w);
 
+                    triProjected.p[0].x *= -1.0f;
+                    triProjected.p[1].x *= -1.0f;
+                    triProjected.p[2].x *= -1.0f;
+                    triProjected.p[0].y *= -1.0f;
+                    triProjected.p[1].y *= -1.0f;
+                    triProjected.p[2].y *= -1.0f;
+
                     // Scaling
                     vec3d vOffsetView = { 1,1,0 };
                     triProjected.p[0] = Vector_Add(triProjected.p[0], vOffsetView);
@@ -509,15 +600,15 @@ int main(void)
 
                 }
             }
+        }
+        sort(vecTrianglesToRaster.begin(), vecTrianglesToRaster.end(), [](triangle& t1, triangle& t2)
+        {
+            float z1 = (t1.p[0].z + t1.p[1].z + t1.p[2].z) / 3.0f;
+            float z2 = (t2.p[0].z + t2.p[1].z + t2.p[2].z) / 3.0f;
+            return z1 > z2;
+        });
 
-            sort(vecTrianglesToRaster.begin(), vecTrianglesToRaster.end(), [](triangle& t1, triangle& t2)
-            {
-                float z1 = (t1.p[0].x + t1.p[1].z + t1.p[2].z) / 3.0f;
-                float z2 = (t2.p[0].x + t2.p[1].z + t2.p[2].z) / 3.0f;
-                return z1 > z2;
-            });
-
-            for (auto& triToRaster : vecTrianglesToRaster)
+        for (auto& triToRaster : vecTrianglesToRaster)
             {
                 triangle clipped[2];
                 list<triangle> listTriangles;
@@ -547,14 +638,16 @@ int main(void)
                     }
                     nNewTriangles = listTriangles.size();
                 }
-
                 for (auto& t : listTriangles)
                 {
                     drawTriangle(t.p[0].x, t.p[0].y, t.p[1].x, t.p[1].y, t.p[2].x, t.p[2].y, t.col);
                 }
             }
 
-        }
+
+        cout << "Tris drawn: " << trisDrawn;
+
+        
 
         glfwSwapBuffers(window);
 
